@@ -10,11 +10,11 @@ type Props = {
 };
 
 const Chessboard: React.FC<Props> = (props) => {
-  const [board, setBoard] = useState(props);
+  // const [board, setBoard] = useState(props);
   const [movesDisplayed, setMovesDisplayed] = useState(false);
   const [currentSquare, setCurrentSquare] = useState<string>("");
   const [validMoves, setValidMoves] = useState<string[] | undefined>(undefined);
-  const [chess, setChess] = useState(new Chess(props.fen))
+  const [chess] = useState(new Chess(props.fen))
 
   const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
   const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
