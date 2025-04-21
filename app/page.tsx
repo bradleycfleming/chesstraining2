@@ -19,7 +19,7 @@ export default async function Home() {
   }
 
   return (
-    <div className="mx-auto min-h-screen max-w-screen-md px-6 py-12 md:px-12 md:py-16 lg:py-24">
+    <div className="mx-auto min-h-screen max-w-screen-md py-12 md:px-12 md:py-16 lg:py-24 scrollbar-hide">
       <main className="flex flex-col items-center ">
         <Chessboard fen={puzzle.FEN}></Chessboard>
       </main>
