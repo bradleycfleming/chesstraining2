@@ -6,11 +6,19 @@ This app leverages the Lichess puzzle database to provide chess training exercis
 ## Todo
 - Cleanup
     -  Create piece and square react components
+    -  Functions as Dependencies:
 - Features
     - Random puzzle
         - ~~Click to move~~
         - Drag and Drop
-        - Implement puzzle move validation
+        - ~~Implement puzzle move validation~~
+        - ~~Computer Moves~~
+        - Complete puzzle indication
+    - Import full database
+    - Create woodpecker set functionality
+    - Set progress and timer UI
 - Bugs
     - Piece promotion
     - Board side not accurate
+    - Hover, and click UI indication
+    - Can activate pieces and squares that aren't active
