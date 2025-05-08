@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "../utils/supabaseClient";
 import { Chess, Square } from "chess.js";
 import Image from "next/image";
 import { useState } from "react";
@@ -19,22 +19,24 @@ import { useState } from "react";
 //   OpeningTags: string | undefined;
 // };
 
+// type pieceInfo = {
+//   square: string;
+//   type: string;
+//   color: string;
+// };
+
 const Chessboard: React.FC = () => {
-  // const [board, setBoard] = useState(props);
   const [previousMove, setPreviousMove] = useState<string[] | undefined>();
   const [movesDisplayed, setMovesDisplayed] = useState(false);
   const [currentSquare, setCurrentSquare] = useState<string>("");
   const [validMoves, setValidMoves] = useState<string[] | undefined>(undefined);
   const [puzzleMoves, setPuzzleMoves] = useState<string[]>([]);
-  // Create a single supabase client for interacting with your database
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const [puzzleColor, setPuzzleColor] = useState<string>("");
+
   const [chess, setChess] = useState(new Chess());
 
   const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
-  const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
+  const ranks = [8, 7, 6, 5, 4, 3, 2, 1];
 
   // on loaded get a new puzzle
   useEffect(() => {
@@ -43,7 +45,6 @@ const Chessboard: React.FC = () => {
 
   // on puzzleMoves loaded make the first move
   useEffect(() => {
-    console.log(" useEffect" + puzzleMoves);
     if (puzzleMoves) {
       makeComputerMove();
     }
@@ -61,11 +62,19 @@ const Chessboard: React.FC = () => {
       console.error("Error fetching random puzzle:", error);
       return null; // Return null if there's an error or no puzzle
     }
-    setChess(new Chess(puzzle.FEN));
+
+    const newChess = new Chess(puzzle.FEN);
+    setPuzzleColor(flipColor(newChess.turn()));
+    setChess(newChess);
     setPuzzleMoves(puzzle.Moves.split(" "));
-    // make initial move
-    // makeComputerMove();
-    console.log(puzzle);
+    console.log(puzzle.Moves.split(" "));
+  };
+
+  // first move is a computer move so initial turn color is wrong
+  const flipColor = (color: string) => {
+    if (color === "b") return "w";
+    else if (color === "w") return "b";
+    else return "";
   };
 
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -98,7 +107,6 @@ const Chessboard: React.FC = () => {
     if (correct) {
       // bump that move from the list
       setPuzzleMoves(puzzleMoves.slice(1));
-      console.log("isCorrect" + puzzleMoves);
       setPreviousMove([currentSquare, targetSquare]);
     }
     return correct;
@@ -106,7 +114,6 @@ const Chessboard: React.FC = () => {
 
   const makeComputerMove = () => {
     const move = puzzleMoves.shift();
-    console.log("Make computer move" + puzzleMoves);
     if (move) {
       chess.move({
         from: move.slice(0, 2),
@@ -126,15 +133,16 @@ const Chessboard: React.FC = () => {
 
   const renderSquares = () => {
     const squares = [];
+    const board = chess.board();
+    const labelFile = puzzleColor === "w" ? "h" : "a"
+    const labelRank = puzzleColor === "w" ? 1 : 8
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
-        const pieceInfo = chess.board()[row][col];
+        const pieceInfo = board[row][col];
         const square = `${files[col]}${ranks[row]}`;
         const isDark = (row + col) % 2 === 1;
         squares.push(
           <div
-            // could use the actual square name ex: a4, b2
-            // maybe need file and rank arrays
             key={square}
             id={square}
             className=""
@@ -147,22 +155,24 @@ const Chessboard: React.FC = () => {
             }}
           >
             {/* Render currently selected square*/}
-            {currentSquare == square && (
-              <div
-                className="absolute inset-0 flex items-center justify-center"
-                style={{
-                  pointerEvents: "none", // Prevent the circle from blocking clicks
-                }}
-              >
+            {currentSquare == square &&
+              pieceInfo != null &&
+              pieceInfo.color == puzzleColor && (
                 <div
+                  className="absolute inset-0 flex items-center justify-center"
                   style={{
-                    width: "100%",
-                    height: "100%",
-                    backgroundColor: "rgba(0, 128, 0, 0.5)", // Darker green with transparency
+                    pointerEvents: "none", // Prevent the circle from blocking clicks
                   }}
-                ></div>
-              </div>
-            )}
+                >
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      backgroundColor: "rgba(0, 128, 0, 0.5)", // Darker green with transparency
+                    }}
+                  ></div>
+                </div>
+              )}
             {/* Render previous move indicator */}
             {previousMove?.includes(square) && (
               <div
@@ -185,12 +195,36 @@ const Chessboard: React.FC = () => {
               <Image
                 src={`/${pieceInfo.color}${pieceInfo.type}.png`}
                 alt="White Pawn"
-                layout="fill"
-                objectFit="scale-down"
+                fill
+                sizes="100px"
+                style={{ objectFit: "scale-down" }} // Use style for object-fit
                 className=""
               />
             )}
-
+            {/* Render rank labels */}
+            {files[col] === labelFile && (
+              <div
+                className="absolute top-0 right-1"
+                style={{
+                  color: isDark ? "#eedab5" : "#b18863",
+                  fontSize: "65%",
+                }}
+              >
+                {ranks[row]}
+              </div>
+            )}
+            {/* Render file labels */}
+            {ranks[row] === labelRank && (
+              <div
+                className="absolute bottom-0 left-1"
+                style={{
+                  color: isDark ? "#eedab5" : "#b18863",
+                  fontSize: "65%",
+                }}
+              >
+                {files[col]}
+              </div>
+            )}
             {/* Render a green circle for valid moves */}
             {validMoves?.includes(square) && (
               <div
@@ -217,7 +251,11 @@ const Chessboard: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-wrap w-full max-w-lg h-full max-h-lg aspect-square ">
+    <div
+      className={`flex w-full max-w-lg h-full max-h-lg aspect-square ${
+        puzzleColor === "w" ? "flex-wrap" : "flex-wrap-reverse flex-row-reverse"
+      }`}
+    >
       {renderSquares()}
     </div>
   );
