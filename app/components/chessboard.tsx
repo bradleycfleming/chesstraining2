@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import { supabase } from "../utils/supabaseClient";
 import { Chess, Square } from "chess.js";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // export type Puzzle = {
 //   PuzzleId: string; // Example field
@@ -27,11 +27,16 @@ import { useState } from "react";
 
 const Chessboard: React.FC = () => {
   const [previousMove, setPreviousMove] = useState<string[] | undefined>();
+  const [previousIncorrectMove, setPreviousIncorrectMove] = useState<
+    string[] | undefined
+  >();
   const [movesDisplayed, setMovesDisplayed] = useState(false);
   const [currentSquare, setCurrentSquare] = useState<string>("");
   const [validMoves, setValidMoves] = useState<string[] | undefined>(undefined);
   const [puzzleMoves, setPuzzleMoves] = useState<string[]>([]);
   const [puzzleColor, setPuzzleColor] = useState<string>("");
+  const [isIncorrectMove, setIsIncorrectMove] = useState<boolean>(false);
+  const [puzzleComplete, setPuzzleComplete] = useState<boolean>(false);
 
   const [chess, setChess] = useState(new Chess());
 
@@ -50,8 +55,10 @@ const Chessboard: React.FC = () => {
     }
   }, [puzzleMoves]);
 
-  // functions
+  // --------- Primary functions ---------
   const getPuzzle = async () => {
+    refreshDisplay();
+
     const { data: puzzle, error } = await supabase
       .from("randompuzzles")
       .select("*")
@@ -70,14 +77,8 @@ const Chessboard: React.FC = () => {
     console.log(puzzle.Moves.split(" "));
   };
 
-  // first move is a computer move so initial turn color is wrong
-  const flipColor = (color: string) => {
-    if (color === "b") return "w";
-    else if (color === "w") return "b";
-    else return "";
-  };
-
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (puzzleComplete) return;
     const targetSquare = event.currentTarget.id;
     // user clicks on piece that is active (Hide moves)
     if (currentSquare == targetSquare) {
@@ -87,13 +88,18 @@ const Chessboard: React.FC = () => {
       // user clicks on an inactive piece from an active piece (Attempt a move)
     } else if (movesDisplayed && validMoves?.includes(targetSquare)) {
       if (isCorrectMove(targetSquare)) {
-        chess.move({ from: currentSquare, to: targetSquare });
-        setValidMoves(undefined);
-        setCurrentSquare("");
-        setMovesDisplayed(false);
+        // bump that move from the list
+        setPuzzleComplete(puzzleMoves.length === 1);
+        setPuzzleMoves(puzzleMoves.slice(1));
+        setPreviousMove([currentSquare, targetSquare]);
       } else {
-        alert("WRONG NERD");
+        setIsIncorrectMove(true);
+        setPreviousIncorrectMove([currentSquare, targetSquare]);
       }
+      chess.move({ from: currentSquare, to: targetSquare });
+      setValidMoves(undefined);
+      setCurrentSquare("");
+      setMovesDisplayed(false);
       // user clicks on an inactive piece with no active piece (Show moves)
     } else {
       listMoves(targetSquare);
@@ -101,15 +107,16 @@ const Chessboard: React.FC = () => {
       setMovesDisplayed(true);
     }
   };
+  // --------- End Primary Functions ---------
 
-  const isCorrectMove = (targetSquare: string) => {
-    const correct = puzzleMoves[0] == currentSquare + targetSquare;
-    if (correct) {
-      // bump that move from the list
-      setPuzzleMoves(puzzleMoves.slice(1));
-      setPreviousMove([currentSquare, targetSquare]);
-    }
-    return correct;
+  // ------ Manage state functions --------
+  const refreshDisplay = () => {
+    setMovesDisplayed(false);
+    setCurrentSquare("");
+    setValidMoves(undefined);
+    setIsIncorrectMove(false);
+    setPreviousIncorrectMove(undefined);
+    setPuzzleComplete(false);
   };
 
   const makeComputerMove = () => {
@@ -123,6 +130,15 @@ const Chessboard: React.FC = () => {
     }
   };
 
+  const showHint = () => {
+    if (puzzleComplete) return;
+
+    const hintSquare = puzzleMoves[0]?.slice(0, 2);
+    listMoves(hintSquare);
+    setCurrentSquare(hintSquare);
+    setMovesDisplayed(true);
+  };
+
   const listMoves = (targetSquare: string) => {
     const moves = chess.moves({ square: targetSquare as Square });
     const moveSquares = moves.map((move) =>
@@ -131,11 +147,34 @@ const Chessboard: React.FC = () => {
     setValidMoves(moveSquares);
   };
 
+  const undoMove = () => {
+    if (puzzleComplete) return;
+    else if (isIncorrectMove) {
+      setIsIncorrectMove(false);
+      chess.undo();
+    }
+  };
+
+  // ------ End Manage state functions ----
+
+  // ------ Simplification functions ------
+  const isCorrectMove = (targetSquare: string) => {
+    return puzzleMoves[0] == currentSquare + targetSquare;
+  };
+
+  // first move is a computer move so initial turn color is wrong
+  const flipColor = (color: string) => {
+    if (color === "b") return "w";
+    else if (color === "w") return "b";
+    else return "";
+  };
+  // ------ End Utility functions ------
+
   const renderSquares = () => {
     const squares = [];
     const board = chess.board();
-    const labelFile = puzzleColor === "w" ? "h" : "a"
-    const labelRank = puzzleColor === "w" ? 1 : 8
+    const labelFile = puzzleColor === "w" ? "h" : "a";
+    const labelRank = puzzleColor === "w" ? 1 : 8;
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
         const pieceInfo = board[row][col];
@@ -173,8 +212,9 @@ const Chessboard: React.FC = () => {
                   ></div>
                 </div>
               )}
+
             {/* Render previous move indicator */}
-            {previousMove?.includes(square) && (
+            {previousMove?.includes(square) && !isIncorrectMove && (
               <div
                 className="absolute inset-0 flex items-center justify-center"
                 style={{
@@ -185,11 +225,32 @@ const Chessboard: React.FC = () => {
                   style={{
                     width: "100%",
                     height: "100%",
-                    backgroundColor: "rgba(204, 204, 0, 0.5)", // Darker yellow with more opacity
+                    backgroundColor: puzzleComplete
+                      ? "rgba(0, 128, 0, 0.5)"
+                      : "rgba(204, 204, 0, 0.5)",
                   }}
                 ></div>
               </div>
             )}
+
+            {/* Render previous incorrect move indicator */}
+            {previousIncorrectMove?.includes(square) && isIncorrectMove && (
+              <div
+                className="absolute inset-0 flex items-center justify-center"
+                style={{
+                  pointerEvents: "none", // Prevent the circle from blocking clicks
+                }}
+              >
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    backgroundColor: "rgba(255, 0, 0, 0.4)",
+                  }}
+                ></div>
+              </div>
+            )}
+
             {/* Render pieces on the board*/}
             {pieceInfo != null && (
               <Image
@@ -251,12 +312,34 @@ const Chessboard: React.FC = () => {
   };
 
   return (
-    <div
-      className={`flex w-full max-w-lg h-full max-h-lg aspect-square ${
-        puzzleColor === "w" ? "flex-wrap" : "flex-wrap-reverse flex-row-reverse"
-      }`}
-    >
-      {renderSquares()}
+    <div className="flex flex-col items-center ">
+      <div
+        className={`flex w-full max-w-lg h-full max-h-lg aspect-square ${
+          puzzleColor === "w"
+            ? "flex-wrap"
+            : "flex-wrap-reverse flex-row-reverse"
+        }`}
+      >
+        {renderSquares()}
+      </div>
+      <div className="join mt-4">
+        <button
+          className={`btn join-item ${puzzleComplete ? "bg-green-700" : ""}`}
+          onClick={getPuzzle}
+        >
+          New Puzzle
+        </button>
+        <button className="btn join-item" id="hintButton" onClick={showHint}>
+          Hint
+        </button>
+        <button
+          className={`btn join-item ${isIncorrectMove ? "bg-red-400" : ""} `}
+          id="undoButton"
+          onClick={undoMove}
+        >
+          Retry
+        </button>
+      </div>
     </div>
   );
 };

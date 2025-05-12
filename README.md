@@ -13,12 +13,13 @@ This app leverages the Lichess puzzle database to provide chess training exercis
         - Drag and Drop
         - ~~Implement puzzle move validation~~
         - ~~Computer Moves~~
-        - Complete puzzle indication
+        - ~~Complete puzzle indication~~
     - Import full database
     - Create woodpecker set functionality
     - Set progress and timer UI
 - Bugs
     - Piece promotion
-    - Board side not accurate
-    - Hover, and click UI indication
-    - Can activate pieces and squares that aren't active
+    - ~~Board side not accurate~~
+    - Hover UI indication
+    - ~~Click UI indication~~
+    - ~~Can activate pieces and squares that aren't active~~
